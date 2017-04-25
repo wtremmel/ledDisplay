@@ -1,0 +1,79 @@
+#!/usr/bin/perl
+
+$subscribe = "/Chattenweg5/Kueche/#";
+$device = "esp2";
+$mqtthost = "pi3.garf.de";
+$hell = 30;
+$debug = 1;
+
+
+$lastMotion = 0;
+$lastLight = 0;
+
+$full = 40;
+$leds = 10;
+
+
+open(M,"mosquitto_sub -h $mqtthost -v -t $subscribe |");
+
+while (<M>) {
+  # print $_;
+  if (/motion (\d)/) {
+    my $thisMotion = $1;
+    if ($lastMotion != $thisMotion) {
+      if ($thisMotion == 0) {
+	print "Motion stopped\n" if $debug;
+        &switchLedsOff();
+      } else {
+	print "Motion started\n" if $debug;
+        # display something depending on time of day
+	if ($lastLight <= 1) {
+	  &allLedsWhite();
+	}
+      }
+      $lastMotion = $thisMotion;
+    }
+  } elsif (/light (\d+)/) {
+    if ($1 != $lastLight) {
+      # print "Light has changed $lastLight -> $1\n" if $debug;
+      $lastLight = $1;
+    }
+  }
+}
+
+sub switchLedsOff {
+  if ($ledsareon) {
+    print("mosquitto_pub -h $mqtthost -t $device -m ledsoff\n") if $debug;
+    system("mosquitto_pub -h $mqtthost -t $device -m ledsoff");
+  }
+  $ledsareon = 0;
+}
+
+sub switchLedsOn {
+  my $i;
+  open(O,"|mosquitto_pub -h $mqtthost -t $device -s");
+  print O "ledb ";
+  for ($i=0; $i<$leds; $i++) {
+    print O pack("CCC",$r[$i],$g[$i],$b[$i]);
+  }
+  close O ;
+ $ledsareon = 1;
+ $displaying = "";
+}
+
+sub allLedsWhite {
+  my $i;
+  if ($displaying ne "allWhite") {
+    print "Switching all LEDS to white\n" if $debug;
+    for ($i=0; $i<$leds;$i++) {
+      $r[$i] = $full;
+      $g[$i] = $full;
+      $b[$i] = $full;
+    }
+    $displaying = "allWhite";
+    &switchLedsOn();
+  }
+}
+
+
+
