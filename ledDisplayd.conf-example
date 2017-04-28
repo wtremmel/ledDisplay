@@ -1,0 +1,9 @@
+device=esp2
+mqtthost=pi3.garf.de
+fullBrightness=50
+leds=10
+subscribe=/Chattenweg5/Kueche/#
+GoogleAPIKey=yourAPIKeyhere
+
+routeSource='61352+Bad+Homburg+vor+der+Höhe'
+routeDestination='60314+Frankfurt+am+Main'
