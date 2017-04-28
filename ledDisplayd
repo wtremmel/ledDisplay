@@ -1,22 +1,52 @@
 #!/usr/bin/perl
 
-$subscribe = "/Chattenweg5/Kueche/#";
-$device = "esp2";
-$mqtthost = "pi3.garf.de";
-$hell = 30;
+$configfile = "./ledDisplayd.conf";
 $debug = 1;
 
 
+if (!$debug) {
+  use Proc::Daemon;
+  $pid = Proc::Daemon::Init;
+  exit if $pid;
+}
+
+use Config::Simple;
+$cfg = new Config::Simple($configfile);
+
+use LWP::Simple;
+use JSON;
+
+$subscribe = $cfg->param("subscribe");
+$device = $cfg->param("device");
+$mqtthost = $cfg->param("mqtthost");
+$hell = $cfg->param("fullBrightness");
+$leds = $cfg->param("leds");
+$googleKey =  $cfg->param("GoogleAPIKey");
+
+$routeSource=$cfg->param("routeSource");
+$routeDestination=$cfg->param("routeDestination");
+
 $lastMotion = 0;
 $lastLight = 0;
+$full = $hell;
 
-$full = 40;
-$leds = 10;
+$stauUrl = 'https://maps.googleapis.com/maps/api/distancematrix/json?' .
+'units=metric' .
+'&origins=' . $routeSource . 
+'&destinations=' . $routeDestination . 
+'&mode=driving' .
+'&departure_time=now' .
+'&traffic_model=pessimistic' .
+'&key=' . $googleKey;
+
 
 
 open(M,"mosquitto_sub -h $mqtthost -v -t $subscribe |");
 
 while (<M>) {
+  my $now = time;
+  my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time);
+  
   # print $_;
   if (/motion (\d)/) {
     my $thisMotion = $1;
@@ -27,15 +57,39 @@ while (<M>) {
       } else {
 	print "Motion started\n" if $debug;
         # display something depending on time of day
-	if ($lastLight <= 1) {
+	# in the morning on weekdays display travel time to work
+	if ($wday >= 1 && $wday <= 5 && $hour >= 7 && $hour <= 8) {
+	  my $stau = &getStauDuration();
+	  print "Stau auf A661: $stau minutes\n" if $debug;
+	  &displayStau($stau);
+	  $stauRefreshed = $now;
+	}
+	# if its dark make some light
+	elsif ($lastLight <= 1) {
 	  &allLedsWhite();
+	} else {
+	  print "Motion, but Light at $lastLight\n"
 	}
       }
       $lastMotion = $thisMotion;
     }
+    elsif ($thisMotion == 1) { # no change but still motion
+      if ($ledsareon && $displaying eq "stau" && ($now - $stauRefreshed) > 60) {
+	$stau =  &getStauDuration();
+	print "Refreshing Stau auf A661: $stau minutes\n" if $debug;
+	&displayStau($stau);
+	$stauRefreshed = $now;
+      }
+    }
   } elsif (/light (\d+)/) {
     if ($1 != $lastLight) {
       # print "Light has changed $lastLight -> $1\n" if $debug;
+      if ($lastLight > 10 && $displaying eq "allWhite") { 
+	&switchLedsOff();
+      }
+      if ($1 <= 1 && !$ledsareon) {
+	&allLedsWhite();
+      }
       $lastLight = $1;
     }
   }
@@ -47,6 +101,7 @@ sub switchLedsOff {
     system("mosquitto_pub -h $mqtthost -t $device -m ledsoff");
   }
   $ledsareon = 0;
+  $displaying = "";
 }
 
 sub switchLedsOn {
@@ -57,8 +112,7 @@ sub switchLedsOn {
     print O pack("CCC",$r[$i],$g[$i],$b[$i]);
   }
   close O ;
- $ledsareon = 1;
- $displaying = "";
+  $ledsareon = 1;
 }
 
 sub allLedsWhite {
@@ -75,5 +129,46 @@ sub allLedsWhite {
   }
 }
 
+sub getStauDuration {
+  my $content = get($stauUrl);
+  my $myscalar = from_json($content);
 
+  my $normalduration =  $myscalar->{rows}[0]->{elements}[0]->{duration}->{value};
+  my $stauduration = $myscalar->{rows}[0]->{elements}[0]->{duration_in_traffic}->{value};
+
+  return int(($stauduration - $normalduration) / 60);
+}
+
+
+sub displayStau {
+  my $t = shift;
+  my $div = 5;
+
+  for ($i = 0; $i < $leds; $i++) {
+    $b[$i] = $full;
+    $r[$i] = 0;
+    $g[$i] = 0;
+  }
+
+  my $pos = 0;
+  my $mod = $t % $div;
+  if ($t > $div) {
+    $mod = $div if !$mod;
+    for ($i=0; $i < int($t / $div); $i++) {
+      $r[$pos] = $full;
+      $b[$pos] = 0;
+      $pos++;
+    }
+  }
+
+  for ($i = 0; $i < $mod; $i++) {
+    $r[$pos] = $full;
+    $b[$pos] = 0;
+    $g[$pos] = $full;
+    $pos++;
+  }
+
+  &switchLedsOn();
+  $displaying = "stau";
+}
 
