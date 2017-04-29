@@ -20,6 +20,7 @@ $subscribe = $cfg->param("subscribe");
 $device = $cfg->param("device");
 $mqtthost = $cfg->param("mqtthost");
 $hell = $cfg->param("fullBrightness");
+$dimmed = $cfg->param("dimmedBrightness");
 $leds = $cfg->param("leds");
 $googleKey =  $cfg->param("GoogleAPIKey");
 
@@ -27,7 +28,9 @@ $routeSource=$cfg->param("routeSource");
 $routeDestination=$cfg->param("routeDestination");
 
 $lastMotion = 0;
-$lastLight = 0;
+$lastLight = 5;
+$lastTemp = 20;
+$lastHumidity = 20;
 $full = $hell;
 
 $stauUrl = 'https://maps.googleapis.com/maps/api/distancematrix/json?' .
@@ -62,36 +65,51 @@ while (<M>) {
 	  my $stau = &getStauDuration();
 	  print "Stau auf A661: $stau minutes\n" if $debug;
 	  &displayStau($stau);
-	  $stauRefreshed = $now;
+	  $ledsRefreshed = $now;
 	}
 	# if its dark make some light
 	elsif ($lastLight <= 1) {
 	  &allLedsWhite();
 	} else {
-	  print "Motion, but Light at $lastLight\n"
+	  print "Motion: Temperature $lastTemp shown\n" if $debug;
+	  &displayTemperature($lastTemp);
 	}
       }
       $lastMotion = $thisMotion;
     }
     elsif ($thisMotion == 1) { # no change but still motion
-      if ($ledsareon && $displaying eq "stau" && ($now - $stauRefreshed) > 60) {
+      if ($ledsareon && $displaying eq "stau" && ($now - $ledsRefreshed) > 60) {
 	$stau =  &getStauDuration();
 	print "Refreshing Stau auf A661: $stau minutes\n" if $debug;
 	&displayStau($stau);
-	$stauRefreshed = $now;
+	$ledsRefreshed = $now;
+      } elsif ($ledsareon && $displaying eq "temperature" && ($now - $ledsRefreshed) > 60) {
+	print "Refresh: Humidity $lastHumidity shown\n" if $debug;
+	&displayHumidity($lastHumidity);
+	$ledsRefreshed = $now;
+      } elsif ($ledsareon && $displaying eq "humidity" && ($now - $ledsRefreshed) > 60) {
+	print "Refresh: Temperature $lastTemp shown\n" if $debug;
+	&displayTemperature($lastTemp);
+	$ledsRefreshed = $now;
       }
     }
   } elsif (/light (\d+)/) {
     if ($1 != $lastLight) {
       # print "Light has changed $lastLight -> $1\n" if $debug;
+      # not dark and LEDs -> turn off
       if ($lastLight > 10 && $displaying eq "allWhite") { 
 	&switchLedsOff();
       }
-      if ($1 <= 1 && !$ledsareon) {
+      # dark, no LEDs and motion -> turn on
+      if ($1 <= 1 && !$ledsareon && $lastMotion) {
 	&allLedsWhite();
       }
       $lastLight = $1;
     }
+  } elsif (/temperature (\d+)/) {
+    $lastTemp = $1;
+  } elsif (/humidity (\d+)/) {
+    $lastHumidity = $1;
   }
 }
 
@@ -171,4 +189,63 @@ sub displayStau {
   &switchLedsOn();
   $displaying = "stau";
 }
+
+sub displayTemperature {
+  my $t = shift;
+  my $full = $dimmed;
+
+  my $div = 5;
+  my $i;
+
+  for ($i = 0; $i < $leds; $i++) {
+    $b[$i] = 0;
+    $r[$i] = 0;
+    $g[$i] = 0;
+  }
+
+  $b[0] = $full;
+  $b[1] = $full;
+
+  my $ledson = int($t / $div);
+  $ledson += 2;
+
+  for ($i = 2; $i < $ledson; $i++) {
+    $r[$i] = $full;
+  }
+
+  # $r[$ledson] = (1 << ($t % $div)) - 1  ;
+  $r[$ledson] = ($t % $div)  ;
+
+  &switchLedsOn();
+  $displaying="temperature";
+}
+
+sub displayHumidity {
+  my $t = shift;
+  my $full = $dimmed;
+
+  my $div = 100 / $leds;
+  my $i;
+
+  # all off
+  for ($i = 0; $i < $leds; $i++) {
+    $b[$i] = 0;
+    $r[$i] = 0;
+    $g[$i] = 0;
+  }
+
+  my $ledson = int($t / $div);
+
+  for ($i = 0; $i < $ledson; $i++) {
+    $g[$i] = $full;
+    $b[$i] = $full;
+  }
+
+  $g[$ledson] = ($t % $div)  ;
+  $b[$ledson] = ($t % $div)  ;
+
+  &switchLedsOn();
+  $displaying="humidity";
+}
+
 
