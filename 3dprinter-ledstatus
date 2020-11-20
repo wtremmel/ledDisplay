@@ -1,0 +1,25 @@
+#!/usr/bin/perl
+
+$configfile = "./ledDisplayd.conf";
+$debug = 1;
+
+
+if (!$debug) {
+  use Proc::Daemon;
+  $pid = Proc::Daemon::Init;
+  exit if $pid;
+}
+
+use Config::Simple;
+$cfg = new Config::Simple($configfile);
+
+use LWP::Simple;
+use JSON;
+use POSIX qw(strftime);
+
+$subscribe = $cfg->param("subscribe");
+$device = $cfg->param("device");
+$mqtthost = $cfg->param("mqtthost");
+$hell = $cfg->param("fullBrightness");
+$dimmed = $cfg->param("dimmedBrightness");
+$leds = $cfg->param("leds");

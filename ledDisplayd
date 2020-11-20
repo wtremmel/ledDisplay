@@ -15,6 +15,7 @@ $cfg = new Config::Simple($configfile);
 
 use LWP::Simple;
 use JSON;
+use POSIX qw(strftime);
 
 $subscribe = $cfg->param("subscribe");
 $device = $cfg->param("device");
@@ -45,6 +46,7 @@ $stauUrl = 'https://maps.googleapis.com/maps/api/distancematrix/json?' .
 
 
 open(M,"mosquitto_sub -h $mqtthost -v -t $subscribe |");
+&switchLedsOff();
 
 while (<M>) {
   my $now = time;
@@ -55,10 +57,12 @@ while (<M>) {
     my $thisMotion = $1;
     if ($lastMotion != $thisMotion) {
       if ($thisMotion == 0) {
-	print "Motion stopped\n" if $debug;
+	print strftime('%Y-%m-%d %H:%M:%S', localtime()) if $debug;
+	print ": Motion stopped\n" if $debug;
         &switchLedsOff();
       } else {
-	print "Motion started\n" if $debug;
+	print strftime('%Y-%m-%d %H:%M:%S', localtime()) if $debug;
+	print ": Motion started\n" if $debug;
         # display something depending on time of day
 	# in the morning on weekdays display travel time to work
 	if ($wday >= 1 && $wday <= 5 && $hour >= 7 && $hour <= 8) {
@@ -68,7 +72,7 @@ while (<M>) {
 	  $ledsRefreshed = $now;
 	}
 	# if its dark make some light
-	elsif ($lastLight <= 1) {
+	elsif ($lastLight == 0) {
 	  &allLedsWhite();
 	} else {
 	  print "Motion: Temperature $lastTemp shown\n" if $debug;
@@ -78,6 +82,8 @@ while (<M>) {
       $lastMotion = $thisMotion;
     }
     elsif ($thisMotion == 1) { # no change but still motion
+      print strftime('%Y-%m-%d %H:%M:%S', localtime()) if $debug;
+      print ": Motion continues\n" if $debug;
       if ($ledsareon && $displaying eq "stau" && ($now - $ledsRefreshed) > 60) {
 	$stau =  &getStauDuration();
 	print "Refreshing Stau auf A661: $stau minutes\n" if $debug;
@@ -115,7 +121,6 @@ while (<M>) {
 
 sub switchLedsOff {
   if ($ledsareon) {
-    print("mosquitto_pub -h $mqtthost -t $device -m ledsoff\n") if $debug;
     system("mosquitto_pub -h $mqtthost -t $device -m ledsoff");
   }
   $ledsareon = 0;
@@ -136,14 +141,15 @@ sub switchLedsOn {
 sub allLedsWhite {
   my $i;
   if ($displaying ne "allWhite") {
-    print "Switching all LEDS to white\n" if $debug;
+    print strftime('%Y-%m-%d %H:%M:%S', localtime()) if $debug;
+    print ": Switching all LEDS to white\n" if $debug;
     for ($i=0; $i<$leds;$i++) {
       $r[$i] = $full;
       $g[$i] = $full;
       $b[$i] = $full;
     }
     $displaying = "allWhite";
-    &switchLedsOn();
+    # &switchLedsOn();
   }
 }
 
@@ -224,7 +230,7 @@ sub displayHumidity {
   my $t = shift;
   my $full = $dimmed;
 
-  my $div = 100 / $leds;
+  my $div = 50 / $leds; # 50 is max
   my $i;
 
   # all off
@@ -243,6 +249,8 @@ sub displayHumidity {
 
   $g[$ledson] = ($t % $div)  ;
   $b[$ledson] = ($t % $div)  ;
+
+  print "Humidity: Last LED is " . ($t % $div) . "\n" if $debug;
 
   &switchLedsOn();
   $displaying="humidity";
