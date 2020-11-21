@@ -24,4 +24,50 @@ $hell = $cfg->param("fullBrightness");
 $dimmed = $cfg->param("dimmedBrightness");
 $leds = $cfg->param("leds");
 
+sub transmitLeds {
+  my $i;
+  open(O, "|mosquitto_pub -h $mqtthost -t $device -s") || die "cannot open";
+  print O "ledfade ";
+  for ($i=0; $i<$leds; $i++) {
+    print O pack("CCC",$r[$i],$g[$i],$b[$i]);
+  }
+  close O || die "cannot close";
+}
+
+
+# half blue half red
+for ($i = 0; $i < $leds/2; $i++) {
+  $r[$i] = 200;
+  $g[$i] = 0;
+  $b[$i] = 0;
+}
+for ($i = $leds/2;$i<$leds; $i++) {
+  $r[$i] = 0;
+  $g[$i] = 0;
+  $b[$i] = 200;
+}
+
+&transmitLeds;
+# half blue half red
+for ($i = 0; $i < $leds/2; $i++) {
+  $r[$i] = 0;
+  $g[$i] = 0;
+  $b[$i] = 200;
+}
+for ($i = $leds/2;$i<$leds; $i++) {
+  $r[$i] = 200;
+  $g[$i] = 0;
+  $b[$i] = 0;
+}
+
+&transmitLeds;
+
+
+for ($i = 0;$i<$leds; $i++) {
+  $r[$i] = 0;
+  $g[$i] = 0;
+  $b[$i] = 0;
+}
+
+&transmitLeds;
 
