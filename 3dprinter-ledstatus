@@ -23,3 +23,5 @@ $mqtthost = $cfg->param("mqtthost");
 $hell = $cfg->param("fullBrightness");
 $dimmed = $cfg->param("dimmedBrightness");
 $leds = $cfg->param("leds");
+
+
