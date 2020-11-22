@@ -30,6 +30,36 @@ sub print {
 	"," . $self->{b} . ")";
 }
 
+package colorstripe;
+sub new {
+  my $class = shift;
+  my %options = @_;
+
+  my $self = { len => 0, %options, led => [] };
+  bless($self, $class);
+
+  for (my $i = 0; $i < $self->{len}; $i++) {
+    push(@{$self->{led}},color->new());
+  }
+
+  return $self;
+}
+
+sub addLed {
+  my $self = shift;
+  my (@toadd) = @_;
+
+  push(@{$self->{led}}, @toadd);
+
+  return @toadd;
+}
+
+
+sub len {
+  my $self = shift;
+
+  return $#{$self->{led}};
+}
 
 1;
 
