@@ -1,5 +1,9 @@
 #!/usr/bin/perl
 
+BEGIN { unshift @INC, '.'; }
+
+use color;
+
 $configfile = "./ledDisplayd.conf";
 $debug = 1;
 
@@ -23,6 +27,12 @@ $mqtthost = $cfg->param("mqtthost");
 $hell = $cfg->param("fullBrightness");
 $dimmed = $cfg->param("dimmedBrightness");
 $leds = $cfg->param("leds");
+
+my $c = color->new(r => 3);
+
+$c->print;
+
+exit;
 
 sub transmitLeds {
   my $i;
