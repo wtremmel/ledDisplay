@@ -30,11 +30,15 @@ $leds = $cfg->param("leds");
 
 my $c = color->new(r => 3);
 
-my $ledstripe = colorstripe->new(len => 144);
+my $ledstripe = colorstripe->new(len => 10);
 
 my $l = $ledstripe->len();
 print "$l\n";
 
+$ledstripe->print();
+
+$ledstripe->setallcolor($c);
+$ledstripe->print();
 
 exit;
 
@@ -84,4 +88,3 @@ for ($i = 0;$i<$leds; $i++) {
 }
 
 &transmitLeds;
-

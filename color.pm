@@ -30,6 +30,27 @@ sub print {
 	"," . $self->{b} . ")";
 }
 
+sub bin {
+  my $self = shift;
+  return pack("CCC",$self->{r},$self->{g},$self->{b});
+}
+
+sub set {
+  my $self = shift;
+  my ($r,$g,$b) = @_;
+  $self->{r} = $r;
+  $self->{g} = $g;
+  $self->{b} = $b;
+}
+
+sub setcolor {
+  my $self = shift;
+  my $c = shift;
+  $self->{r} = $c->{r};
+  $self->{g} = $c->{g};
+  $self->{b} = $c->{b};
+}
+
 package colorstripe;
 sub new {
   my $class = shift;
@@ -61,5 +82,42 @@ sub len {
   return $#{$self->{led}};
 }
 
-1;
+sub print {
+  my $self = shift;
+  for (my $i=0; $i <= $self->len(); $i++) {
+    print "$i:";
+    $self->{led}[$i]->print();
+    print "\n";
+  }
+}
 
+sub bin {
+  # returned packed binary for mqtt
+  my $self = shift;
+  my $outbin;
+
+  for (my $i=0; $i <= $self->len(); $i++) {
+    $outbin .=     $self->{led}[$i]->bin();
+  }
+  return $outbin;
+}
+
+sub setall {
+  my $self = shift;
+  my ($r,$g,$b) = @_;
+
+  for (my $i=0; $i <= $self->len(); $i++) {
+    $self->{led}[$i]->set($r,$g,$b);
+  }
+}
+
+sub setallcolor {
+  my $self = shift;
+  my $c = shift;
+
+  for (my $i=0; $i <= $self->len(); $i++) {
+    $self->{led}[$i]->setcolor($c);
+  }
+}
+
+1;
