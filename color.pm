@@ -179,12 +179,12 @@ sub fade {
   my $self = shift;
   my %opt = (
         start => 0,
-	len => 3,
+	len => 0,
         @_);
 
   $opt{start} = 0 if ($opt{start} < 0);
   $opt{start} = $self->len() if ($opt{start} > $self->len());
-  $opt{end} = $opt{start} + $opt{len}-1;
+  $opt{end} = $opt{start} + $opt{len};
   $opt{end} = $self->len() if ($opt{end} > $self->len());
 
   my $c1 = $opt{color1} ? $opt{color1} : $self->{led}[$opt{start}];
@@ -228,6 +228,7 @@ sub percent {
 	end => $self->len(),
 	len => 0,
 	percent => 50,
+	overlap => 0,
 	@_);
 
   if ($opt{len} > 0) {
@@ -245,20 +246,14 @@ sub percent {
 	len => $opt{len} * (100-$opt{percent})/100,
 	color => $opt{color2});
 
+  if ($opt{overlap}) {
+    my $border = $opt{start} + $opt{len} * $opt{percent}/100;
+    $self->fade(start => ($border - $opt{overlap}/2), len => $opt{overlap});
+  }
+
   return $self;
 }
   
-
-sub setallcolor {
-  my $self = shift;
-  my $c = shift;
-
-  for (my $i=0; $i <= $self->len(); $i++) {
-    $self->{led}[$i]->setcolor($c);
-  }
-  return $self;
-}
-
 sub setxcolor {
   my $self = shift;
   my $x = shift;
@@ -284,5 +279,19 @@ sub shiftr {
   return $self;
 }
 
+sub transmit {
+  my $self = shift;
+  my %opt = (
+        host => "",
+        device => "",
+        @_);
+
+  my $bin = $self->bin();
+  open(O, "|mosquitto_pub -h $opt{host} -t $opt{device} -s") || die "cannot open";
+  print O "ledb ";
+  print O $self->bin();
+  close O || die "cannot close";
+  return $self;
+}
 
 1;

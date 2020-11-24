@@ -33,38 +33,19 @@ my $c = color->new(r => 3);
 my $green = color->new(g => 3);
 my $bluesky = color->new(r => 0x40, g => 0x9c, b => 0xff);
 
-my $ledstripe = colorstripe->new(len => 55);
+my $ledstripe = colorstripe->new(len => 144);
 
 my $l = $ledstripe->len();
 print "$l\n";
 
-$ledstripe->fill( color => $c, every => 5);
-transmitBin($ledstripe->bin());
 
-sleep 2;
+$ledstripe->percent(
+ 	color1 => color->new(r=>50),
+ 	color2 => color->new(b=>50),
+	overlap => 4,
+ 	percent => 25)->transmit(host => $mqtthost, device => $device);
 
-$ledstripe->percent(start => 0, len => 50, 
- 	color1 => $bluesky,
- 	color2 => color->new(b=>5),
- 	percent => 25);
- transmitBin($ledstripe->bin());
- sleep 2;
+sleep 5;
 
-transmitBin($ledstripe->fade(start => 0, len => 50)->bin());
-
-for (my $i = 0; $i < 100; $i++) {
-  transmitBin($ledstripe->shiftl()->bin());
-}
-sleep 1;
-
-transmitBin($ledstripe->fill()->bin);
-
-sub transmitBin {
-  my $bin = shift;
-  my $i;
-  open(O, "|mosquitto_pub -h $mqtthost -t $device -s") || die "cannot open";
-  print O "ledb ";
-  print O $bin;
-  close O || die "cannot close";
-}
+$ledstripe->fill()->transmit(host => $mqtthost, device => $device);
 
