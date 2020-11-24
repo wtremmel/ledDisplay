@@ -282,8 +282,8 @@ sub shiftr {
 sub transmit {
   my $self = shift;
   my %opt = (
-        host => "",
-        device => "",
+        host => $self->{host},
+        device => $self->{device},
         @_);
 
   my $bin = $self->bin();
