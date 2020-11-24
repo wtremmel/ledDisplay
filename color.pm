@@ -125,18 +125,6 @@ sub bin {
   return $outbin;
 }
 
-sub setall {
-  my $self = shift;
-  my %opt = (
-        r => 0,
-        g => 0,
-        b => 0, @_);
-
-  for (my $i=0; $i <= $self->len(); $i++) {
-    $self->{led}[$i]->set(%opt);
-  }
-  return $self;
-}
 
 sub dimby {
   my $self = shift;

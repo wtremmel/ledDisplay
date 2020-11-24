@@ -57,7 +57,7 @@ for (my $i = 0; $i < 100; $i++) {
 }
 sleep 1;
 
-transmitBin($ledstripe->setall()->bin);
+transmitBin($ledstripe->fill()->bin);
 
 sub transmitBin {
   my $bin = shift;
