@@ -156,6 +156,7 @@ sub fill {
         start => 0,
 	end => $self->len(),
 	len => 0,
+	every => 1,
 	r => 0, g => 0, b => 0,
         @_);
 
@@ -180,7 +181,7 @@ sub fill {
     $b = $opt{b};
   }
 
-  for (my $i=$opt{start}; $i <= $opt{end};  $i++) {
+  for (my $i=$opt{start}; $i <= $opt{end};  $i += $opt{every}) {
     $self->{led}[$i]->set(r=>$r,g=>$g,b=>$b);
   }
   return $self;
@@ -195,7 +196,7 @@ sub fade {
 
   $opt{start} = 0 if ($opt{start} < 0);
   $opt{start} = $self->len() if ($opt{start} > $self->len());
-  $opt{end} = $opt{start} + $opt{len};
+  $opt{end} = $opt{start} + $opt{len}-1;
   $opt{end} = $self->len() if ($opt{end} > $self->len());
 
   my $c1 = $opt{color1} ? $opt{color1} : $self->{led}[$opt{start}];

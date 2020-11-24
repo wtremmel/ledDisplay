@@ -8,6 +8,7 @@ $configfile = "./ledDisplayd.conf";
 $debug = 1;
 
 
+
 if (!$debug) {
   use Proc::Daemon;
   $pid = Proc::Daemon::Init;
@@ -30,47 +31,39 @@ $leds = $cfg->param("leds");
 
 my $c = color->new(r => 3);
 my $green = color->new(g => 3);
+my $bluesky = color->new(r => 0x40, g => 0x9c, b => 0xff);
 
-my $ledstripe = colorstripe->new(len => 144);
+my $ledstripe = colorstripe->new(len => 55);
 
 my $l = $ledstripe->len();
 print "$l\n";
 
-# $ledstripe->setallcolor($c);
-# transmitBin($ledstripe->bin());
-
-# $ledstripe->percent(start => 5, len => 50, 
-# 	color1 => color->new(r=>5),
-# 	color2 => color->new(b=>5),
-# 	percent => 25);
-# transmitBin($ledstripe->bin());
-# sleep 2;
-$ledstripe->fade(start => 5, len => 50,
-	color1 => color->new(r=>5),
-	color2 => color->new(b=>5));
-
+$ledstripe->fill( color => $c, every => 5);
 transmitBin($ledstripe->bin());
 
+sleep 2;
 
-sleep 5;
+$ledstripe->percent(start => 0, len => 50, 
+ 	color1 => $bluesky,
+ 	color2 => color->new(b=>5),
+ 	percent => 25);
+ transmitBin($ledstripe->bin());
+ sleep 2;
+
+transmitBin($ledstripe->fade(start => 0, len => 50)->bin());
+
+for (my $i = 0; $i < 100; $i++) {
+  transmitBin($ledstripe->shiftl()->bin());
+}
+sleep 1;
 
 transmitBin($ledstripe->setall()->bin);
-
-sub transmitLeds {
-  my $i;
-  open(O, "|mosquitto_pub -h $mqtthost -t $device -s") || die "cannot open";
-  print O "ledfade ";
-  for ($i=0; $i<$leds; $i++) {
-    print O pack("CCC",$r[$i],$g[$i],$b[$i]);
-  }
-  close O || die "cannot close";
-}
 
 sub transmitBin {
   my $bin = shift;
   my $i;
   open(O, "|mosquitto_pub -h $mqtthost -t $device -s") || die "cannot open";
-  print O "ledfade ";
+  print O "ledb ";
   print O $bin;
   close O || die "cannot close";
 }
