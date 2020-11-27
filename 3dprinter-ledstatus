@@ -33,19 +33,15 @@ my $c = color->new(r => 3);
 my $green = color->new(g => 3);
 my $bluesky = color->new(r => 0x40, g => 0x9c, b => 0xff);
 
-my $ledstripe = colorstripe->new(len => 144);
+my $ledstripe = colorstripe->new(len => 144, host => $mqtthost, device => $device);
 
-my $l = $ledstripe->len();
-print "$l\n";
+for (my $i=0; $i < 144; $i++) {
+  my $c = color->new(h=>$i, s=>240, v =>255);
+  $c->hsv2rgb();
+  $ledstripe->setxcolor($i,$c);
+}
+$ledstripe->transmit();
+sleep 10;
 
-
-$ledstripe->percent(
- 	color1 => color->new(r=>50),
- 	color2 => color->new(b=>50),
-	overlap => 4,
- 	percent => 25)->transmit(host => $mqtthost, device => $device);
-
-sleep 5;
-
-$ledstripe->fill()->transmit(host => $mqtthost, device => $device);
+$ledstripe->fill()->transmit();
 

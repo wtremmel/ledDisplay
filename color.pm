@@ -10,11 +10,24 @@ Color - my color class
 
 =cut
 
+use constant {
+	HUE_RED => 0, 
+	HUE_ORANGE => 32, 
+	HUE_YELLOW => 64, 
+	HUE_GREEN => 96, 
+	HUE_AQUA => 128, 
+	HUE_BLUE => 160, 
+	HUE_PURPLE => 192, 
+	HUE_PINK => 224,
+	HSV_SECTION_6 => 0x20,
+	HSV_SECTION_3 => 0x40
+};
+
 sub new {
   my $class = shift;
   my %options = @_;
 
-  my $self = { r => 0, g => 0, b => 0, %options };
+  my $self = { r => 0, g => 0, b => 0, h => 0, s => 0, v => 0, %options };
   bless($self, $class);
   return $self;
 }
@@ -22,6 +35,9 @@ sub new {
 sub r { shift->{r} }
 sub g { shift->{g} }
 sub b { shift->{b} }
+sub h { shift->{h} }
+sub s { shift->{s} }
+sub v { shift->{v} }
 
 sub print {
   my $self = shift;
@@ -35,12 +51,174 @@ sub bin {
   return pack("CCC",$self->{r},$self->{g},$self->{b});
 }
 
+sub hsv2rgb {
+  my $self = shift;
+  # set the r,g,b values from h,s,v values
+
+  my $value = $self->{v};
+  my $saturation = $self->{s};
+  my $invsat = 255 - $saturation;
+  my $brightness_floor = int(($value * $invsat) / 256);
+  my $color_amplitude = $value - $brightness_floor;
+
+  my $section = int($self->{h} / HSV_SECTION_3);
+  my $offset = $self->{h} % HSV_SECTION_3;
+
+  my $rampup = $offset;
+  my $rampdown = (HSV_SECTION_3 - 1) - $offset;
+
+  my $rampup_amp_adj = int(($rampup * $color_amplitude) / (256/4));
+  my $rampdown_amp_adj=int(($rampdown * $color_amplitude) / (256/4));
+
+  my $rampup_adj_with_floor   = $rampup_amp_adj   + $brightness_floor;
+  my $rampdown_adj_with_floor = $rampdown_amp_adj + $brightness_floor;
+ 
+  if ($section) {
+    if ($section == 1) {
+      $self->{r} = $brightness_floor;
+      $self->{g} = $rampdown_adj_with_floor;
+      $self->{b} = $rampup_adj_with_floor;
+    } else {
+      $self->{r} = $rampup_adj_with_floor;
+      $self->{g} = $brightness_floor;
+      $self->{b} = $rampdown_adj_with_floor;
+    }
+  } else {
+    $self->{r} = $rampdown_adj_with_floor;
+    $self->{g} = $rampup_adj_with_floor;
+    $self->{b} = $brightness_floor;
+  }
+  return $self;
+}
+
+sub rgb2hsv {
+  my $self = shift;
+  # set the h,s,v values from r,g,b values
+
+  my $r = $self->{r};
+  my $g = $self->{g};
+  my $b = $self->{b};
+  my ($h,$s,$v);
+
+  my $desat = 255;
+  $desat = $r if ($r < $desat);
+  $desat = $g if ($g < $desat);
+  $desat = $b if ($b < $desat);
+
+  $r -= $desat;
+  $g -= $desat;
+  $b -= $desat;
+
+  $s = 255 - $desat;
+  if ($s != 255) {
+    $s = int(255 - sqrt((255-$s)*256));
+  }
+
+  if (($r + $g + $b) == 0) {
+    $self->{h} = 0;
+    $self->{s} = 0;
+    $self->{v} = 255-$s;
+    return $self;
+  }
+
+  if ($s < 255) {
+    $s = 1 if ($s == 0);
+    my $scaleup = int(65535 / $s);
+    $r = int($r * $scaleup / 256);
+    $g = int($g * $scaleup / 256);
+    $b = int($b * $scaleup / 256);
+  }
+
+  my $total = $r + $g + $b;
+
+  if ($total < 255) {
+    $total = 1 if ($total == 0);
+    my $scaleup = int(65535 / $total);
+    $r = int($r * $scaleup / 256);
+    $g = int($g * $scaleup / 256);
+    $b = int($b * $scaleup / 256);
+  }
+
+  $v = $total + $desat;
+  $v = 255 if ($v > 255);
+  $v = int(256.0 * sqrt($v / 256.0)) if ($v < 255);
+
+  my $highest = $r;
+  $highest = $g if ($g > $highest);
+  $highest = $b if ($b > $highest);
+
+  #define FIXFRAC8(N,D) (((N)*256)/(D))
+  # scale8(i,scale)  i*(scale/256)
+  # qsub8 a-b, result >=0
+
+  if ($highest == $r) {
+    if ($g == 0) {
+      $h = (HUE_PURPLE + HUE_PINK) /2;
+      my $qs8 = (($g - 85) + (171 - $r) - 4);
+      $qs8 = 0 if ($qs8 < 0);
+      $h += $qs8 * ((32*256/85) / 256);
+    } elsif (($r - $g) > $g) {
+      $h = HUE_RED;
+      $h += $g * (32*256/85)/256;
+    }
+  } elsif ($highest == $g) {
+    if ($b == 0) {
+      $h = HUE_YELLOW;
+      my $x = 171 - $r;
+      $x = 0 if ($x < 0);
+      my $radj = int($x * (47/256));
+
+      $x = $g - 171;
+      $x = 0 if ($x < 0);
+      my $gadj = int($x * 97/256);
+      my $rgadj = $radj + $gadj;
+      my $hueadv= int($rgadj / 2);
+      $h += $hueadv;
+    } else {
+      if (($g - $b) > $b) {
+        $h = HUE_GREEN;
+        $h += int($b * (32*256/85));
+      } else {
+        $h = HUE_AQUA;
+        my $y = $b - 85;
+        $y = 0 if ($y < 0);
+        $h += int($y * (8*256/42)/256);
+      }
+    }
+  } else { # highest == b
+    if ($r == 0) {
+      $h = HUE_AQUA + ((HUE_BLUE - HUE_AQUA) / 4);
+      my $x = $b - 128;
+      $x = 0 if ($x < 0);
+      $h += int($x * (24*256/128)/256);
+    } elsif (($b - $r) > $r) {
+      $h = HUE_BLUE;
+      $h += int($r * (32*256/85)/256);
+    } else {
+      $h = HUE_PURPLE;
+      my $x = $r - 85;
+      $x = 0 if ($x < 0);
+      $h += int($x * (32*256/85)/256);
+    }
+  }
+
+  $h += 1;
+
+  $self->{h} = $h;
+  $self->{s} = $s;
+  $self->{v} = $v;
+  return $self;
+}
+
 sub set {
   my $self = shift;
   my %opt = (
 	r => 0, 
 	g => 0,
-	b => 0, @_);
+	b => 0,
+	h => 0,
+	s => 0,
+	v => 0, @_);
 
   $self->{r} = $opt{r};
   $self->{g} = $opt{g};
@@ -75,6 +253,7 @@ sub dimby {
 
 
 package colorstripe;
+use Time::HiRes qw( usleep );
 sub new {
   my $class = shift;
   my %options = @_;
@@ -218,10 +397,6 @@ sub fade {
 }
 
 sub percent {
-# $ledstripe->percent(start => 5, len => 100,
-#        color1 => color->new(r=>5),
-#        color2 => color->new(b=>5),
-#        percent => 25);
   my $self = shift;
   my %opt = (
 	start => 0,
@@ -292,6 +467,25 @@ sub transmit {
   print O $self->bin();
   close O || die "cannot close";
   return $self;
+}
+
+sub flash {
+  my $self = shift;
+  my %opt = (
+        host => $self->{host},
+        device => $self->{device},
+	times => 10,
+	interval => 1000, # milliseconds
+        @_);
+
+  my $dark = colorstripe->new(len=>$self->{len});
+
+  for (my $i = 0; $i < $opt{times}; $i++) {
+    $self->transmit(host=>$opt{host}, device=>$opt{device});
+    ::Time::HiRes::usleep($opt{interval});
+    $dark->transmit(host=>$opt{host}, device=>$opt{device});
+    ::Time::HiRes::usleep($opt{interval});
+  }
 }
 
 1;
